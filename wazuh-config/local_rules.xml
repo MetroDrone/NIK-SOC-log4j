@@ -1,0 +1,110 @@
+<!--
+    Wazuh egyedi riasztási szabályok – Log4Shell (CVE-2021-44228) detektálás
+    Fájl helye: /var/ossec/etc/rules/local_rules.xml
+
+    Szabály szintek:
+      7-10  : közepes súlyosság (információ, gyanú)
+      12    : magas súlyosság (aktív exploit kísérlet)
+      15    : kritikus (sikeres RCE)
+-->
+
+<group name="log4shell,web,exploit,">
+
+    <!-- ================================================
+         SZABÁLY 1: JNDI injection kísérlet detektálás
+         Felismeri ha ${jndi: megjelenik bármely logban
+         ================================================ -->
+    <rule id="100001" level="12">
+        <decoded_as>json</decoded_as>
+        <regex type="pcre2">\$\{jndi:</regex>
+        <description>Log4Shell (CVE-2021-44228): JNDI injection kísérlet detektálva!</description>
+        <group>log4shell,jndi_injection,attack,</group>
+        <mitre>
+            <id>T1190</id>  <!-- Exploit Public-Facing Application -->
+            <id>T1059</id>  <!-- Command and Scripting Interpreter -->
+        </mitre>
+        <options>alert_by_email</options>
+    </rule>
+
+    <!-- ================================================
+         SZABÁLY 2: LDAP alapú JNDI (klasszikus Log4Shell)
+         ================================================ -->
+    <rule id="100002" level="14">
+        <if_sid>100001</if_sid>
+        <regex type="pcre2">\$\{jndi:ldap[s]?://</regex>
+        <description>Log4Shell: LDAP JNDI lookup kísérlet – aktív exploit!</description>
+        <group>log4shell,ldap_exploit,critical,</group>
+        <mitre>
+            <id>T1190</id>
+            <id>T1071.001</id>  <!-- Web Protocols -->
+        </mitre>
+    </rule>
+
+    <!-- ================================================
+         SZABÁLY 3: RMI/DNS/egyéb protokoll bypass
+         ================================================ -->
+    <rule id="100003" level="13">
+        <if_sid>100001</if_sid>
+        <regex type="pcre2">\$\{jndi:(rmi|dns|iiop|nis|nds|corba)://</regex>
+        <description>Log4Shell: Nem-LDAP JNDI protokoll bypass kísérlet (rmi/dns/iiop)!</description>
+        <group>log4shell,bypass,attack,</group>
+        <mitre>
+            <id>T1190</id>
+        </mitre>
+    </rule>
+
+    <!-- ================================================
+         SZABÁLY 4: Obfuszkált payload (${lower:} bypass)
+         Pl: ${${lower:j}ndi:...}
+         ================================================ -->
+    <rule id="100004" level="14">
+        <decoded_as>json</decoded_as>
+        <regex type="pcre2">\$\{[^\}]*\$\{[^\}]*(lower|upper|:-)[^\}]*\}[^\}]*\}</regex>
+        <description>Log4Shell: Obfuszkált/bypass JNDI payload detektálva!</description>
+        <group>log4shell,obfuscation,evasion,</group>
+        <mitre>
+            <id>T1190</id>
+            <id>T1027</id>  <!-- Obfuscated Files or Information -->
+        </mitre>
+    </rule>
+
+    <!-- ================================================
+         SZABÁLY 5: Sikeres exploit jelei (fájl létrehozás)
+         Ha a Wazuh file integrity monitoring PWNED fájlt lát
+         ================================================ -->
+    <rule id="100005" level="15">
+        <if_group>syscheck</if_group>
+        <match>PWNED_by_log4shell</match>
+        <description>Log4Shell RCE SIKERES! Bizonyíték fájl létrehozva az áldozaton!</description>
+        <group>log4shell,rce_success,critical,</group>
+        <mitre>
+            <id>T1190</id>
+            <id>T1059.007</id>  <!-- JavaScript -->
+        </mitre>
+    </rule>
+
+    <!-- ================================================
+         SZABÁLY 6: Alkalmazás logból – HTTP User-Agent szűrés
+         ================================================ -->
+    <rule id="100006" level="12">
+        <decoded_as>syslog</decoded_as>
+        <match>User-Agent</match>
+        <regex type="pcre2">\$\{jndi:</regex>
+        <description>Log4Shell: JNDI payload az alkalmazás HTTP kérés logjában!</description>
+        <group>log4shell,http_exploit,</group>
+    </rule>
+
+    <!-- ================================================
+         SZABÁLY 7: Ismétlődő exploit kísérletek (brute)
+         ================================================ -->
+    <rule id="100007" level="14" frequency="5" timeframe="120">
+        <if_matched_sid>100002</if_matched_sid>
+        <same_source_ip/>
+        <description>Log4Shell: Ismételt LDAP JNDI exploit kísérletek ugyanarról az IP-ről!</description>
+        <group>log4shell,repeated_attack,</group>
+        <mitre>
+            <id>T1190</id>
+        </mitre>
+    </rule>
+
+</group>

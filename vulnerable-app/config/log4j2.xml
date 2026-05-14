@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    Log4j2 konfiguráció – Sérülékeny beállítás
+    NEM tartalmaz lookup-tiltást → CVE-2021-44228 reprodukálható
+
+    Javítás: log4j2.formatMsgNoLookups=true
+    vagy: Log4j 2.17.1+ verzióra frissítés
+-->
+<Configuration status="WARN">
+    <Appenders>
+        <!-- Konzol appender (Docker log) -->
+        <Console name="Console" target="SYSTEM_OUT">
+            <PatternLayout pattern="%d{yyyy-MM-dd HH:mm:ss} %-5level [%t] %logger{36} - %msg%n"/>
+        </Console>
+
+        <!-- Fájl appender – ezt olvassa a Wazuh agent -->
+        <File name="AppLog" fileName="/var/log/vulnerable-app/app.log" append="true">
+            <PatternLayout pattern="%d{yyyy-MM-dd HH:mm:ss} %-5level [%t] %logger{36} - %msg%n"/>
+        </File>
+    </Appenders>
+
+    <Loggers>
+        <Root level="INFO">
+            <AppenderRef ref="Console"/>
+            <AppenderRef ref="AppLog"/>
+        </Root>
+    </Loggers>
+</Configuration>
