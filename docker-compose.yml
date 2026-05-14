@@ -101,7 +101,7 @@ services:
   wazuh-indexer:
     image: wazuh/wazuh-indexer:4.7.3
     container_name: wazuh-indexer
-    hostname: wazuh-indexer
+    hostname: wazuh.indexer
     networks:
       demo-net:
         ipv4_address: 10.5.0.31
@@ -137,7 +137,7 @@ services:
     ports:
       - "5601:5601"   # Dashboard UI: https://localhost:5601
     environment:
-      - INDEXER_URL=https://wazuh-indexer:9200
+      - INDEXER_URL=https://wazuh.indexer:9200
       - INDEXER_USERNAME=admin
       - INDEXER_PASSWORD=SecretPassword
       - WAZUH_API_URL=https://wazuh-manager
